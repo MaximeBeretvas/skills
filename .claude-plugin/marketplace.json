@@ -11,7 +11,7 @@
       "description": "Personal agent skills by Maxime Beretvas.",
       "license": "MIT",
       "repository": "https://github.com/MaximeBeretvas/skills",
-      "skills": ["./YAP"]
+      "skills": ["./YAP", "./hexcavator"]
     }
   ]
 }
