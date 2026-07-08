@@ -35,6 +35,9 @@ YAP is strongly inspired by **Matt Pocock's "grill me" skill** and his
 planning workflow. The relentless one-question-at-a-time interview and the
 insistence on independently checkable steps come directly from that approach.
 
+- Repo: [mattpocock/skills](https://github.com/mattpocock/skills)
+- The skill: [grill-me](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md)
+
 ## Install
 
 ```bash
