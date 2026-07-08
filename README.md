@@ -32,13 +32,6 @@ npx skills add MaximeBeretvas/skills --list
 /plugin install maxime-skills@maxime-skills
 ```
 
-## Adding a new skill
-
-1. Create a folder at the repo root containing a `SKILL.md` (see `YAP/` as a template).
-2. Add its path to the `skills` array in both `.claude-plugin/plugin.json` and
-   `.claude-plugin/marketplace.json`.
-3. Add a row to the table above, commit, and push.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
