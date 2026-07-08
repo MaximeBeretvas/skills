@@ -11,6 +11,7 @@ CLI (works across Claude Code, Cursor, Codex, and 60+ other agents), or as a
 | Skill | What it does |
 | ----- | ------------ |
 | **YAP** | Draft an implementation plan broken into independently verifiable vertical slices, get explicit approval, then save it to `Docs/Plans/<name>/`. Invoke by typing `/YAP`. |
+| **hexcavator** | Excavate a Hex report app into a data-engineer blueprint — the story it tells, its metrics/KPIs, a recommended fact/dim mart architecture, a Mermaid ER diagram, and table schemas mapped to existing dbt staging models — saved to `Docs/Blueprints/<app>/`. Invoke by typing `/hexcavator`. |
 
 ## Install with `npx skills`
 
