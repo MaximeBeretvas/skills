@@ -141,7 +141,7 @@ for f in "${step_files[@]}"; do
 
     rel="${f#$repo_root/}"
     log="$logs_dir/$(basename "$f" .md).jsonl"
-    prompt="Execute the plan step described in $rel. It links to context.md in the same folder for shared background — read that first. Follow the step's Fix section, then run its Verify section to confirm the fix actually works. Report status via the required schema: status=\"success\" only if Verify passed; otherwise \"failure\" with the reason in summary."
+    prompt="Execute the plan step described in $rel. It links to context.md in the same folder for shared background — read that first. Carry out the step's Actions section, then run its Verification section to confirm the step actually works. Report status via the required schema: status=\"success\" only if Verification passed; otherwise \"failure\" with the reason in summary."
 
     echo "=== Step $num: $base ==="
     if ! run_one "$prompt" "$log"; then

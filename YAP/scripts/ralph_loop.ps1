@@ -129,7 +129,7 @@ foreach ($f in $stepFiles) {
 
     $rel = [System.IO.Path]::GetRelativePath($RepoRoot, $f.FullName)
     $log = Join-Path $LogsDir ($f.BaseName + ".jsonl")
-    $prompt = "Execute the plan step described in $rel. It links to context.md in the same folder for shared background — read that first. Follow the step's Fix section, then run its Verify section to confirm the fix actually works. Report status via the required schema: status=`"success`" only if Verify passed; otherwise `"failure`" with the reason in summary."
+    $prompt = "Execute the plan step described in $rel. It links to context.md in the same folder for shared background — read that first. Carry out the step's Actions section, then run its Verification section to confirm the step actually works. Report status via the required schema: status=`"success`" only if Verification passed; otherwise `"failure`" with the reason in summary."
 
     Write-Host "=== Step ${num}: $base ==="
     if (-not (Invoke-Step -Prompt $prompt -Log $log)) {

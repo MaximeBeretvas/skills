@@ -8,6 +8,15 @@ call "done" or "not done" on its own, ordered so the agent can't skip ahead.
 
 > A plan that can't be checked step-by-step isn't a plan, it's a hope.
 
+## Install
+
+```bash
+npx skills add MaximeBeretvas/skills --skill YAP
+```
+
+Or via the Claude Code marketplace — see the [repo README](../README.md). The
+[ralph loop](#the-ralph-loop) scripts install alongside the skill.
+
 ## Invoke
 
 Type `/YAP` in an agent that has the skill installed. (Model auto-invocation is
@@ -152,17 +161,10 @@ Then `just ralph Docs/Plans/<name>`.
 
 ## Acknowledgements
 
-YAP is strongly inspired by **Matt Pocock's "grill me" skill** and his
-planning workflow. The relentless one-question-at-a-time interview and the
-insistence on independently checkable steps come directly from that approach.
+YAP is strongly inspired by **Matt Pocock's "grill me" skill** and his planning
+workflow. The relentless one-question-at-a-time interview and the insistence on
+independently checkable steps come directly from that approach. The ralph loop
+above follows the same workflow: run each planned slice, verify it, then move on.
 
-- Repo: [mattpocock/skills](https://github.com/mattpocock/skills)
-- The skill: [grill-me](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md)
-
-## Install
-
-```bash
-npx skills add MaximeBeretvas/skills --skill YAP
-```
-
-Or via the Claude Code marketplace — see the [repo README](../README.md).
+- Matt Pocock's skills repo: [mattpocock/skills](https://github.com/mattpocock/skills)
+- The "grill me" skill: [grill-me](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md)
