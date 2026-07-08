@@ -7,7 +7,7 @@ description: >
 disable-model-invocation: true
 ---
 
-# YAP (Yet Another Plan)
+# YAP (Yet Another Planning)
 
 A plan that can't be checked step-by-step isn't a plan, it's a hope. Every
 step this skill produces is a **vertical slice**: a change you can point at

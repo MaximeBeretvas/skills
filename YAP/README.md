@@ -1,4 +1,6 @@
-# YAP (Yet Another Plan)
+# YAP (Yet Another Planning)
+
+**YAP** stands for *Yet Another Planning*.
 
 A planning skill for coding agents. It turns a request into an implementation
 plan made of **vertical slices** — each step is a change you can point at and
