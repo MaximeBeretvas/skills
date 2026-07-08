@@ -40,110 +40,66 @@ at a time.
 
 ## The ralph loop
 
-`ralph_loop.sh` runs a YAP plan folder step-by-step. Each `step_<n>_*.md` is
-executed by a fresh `claude` session, verified against its own Verify section,
-and committed before the next step runs. It stops on the first failure so you
-can fix and resume.
+`scripts/ralph_loop.py` runs a YAP plan folder step-by-step. Each `step_<n>_*.md`
+is executed by a fresh `claude` session, verified against its own Verification
+section, and committed before the next step runs. It stops on the first failure
+so you can fix and resume.
 
-Two equivalent versions ship in `scripts/`:
-
-- **`ralph_loop.sh`** — bash, for macOS / Linux / WSL / Git Bash. Requires the
-  `claude` CLI and `jq`.
-- **`ralph_loop.ps1`** — PowerShell, for Windows. Requires **PowerShell 7+**
-  (`pwsh`), the `claude` CLI, and `jq`.
-
-Both share `ralph_format.jq`. The scripts ship inside the skill, so installing
-YAP installs the loop too — no separate download.
+It's a single cross-platform script (macOS / Linux / Windows) — requires
+**Python 3.8+** and the `claude` CLI, nothing else (stdlib only). It ships inside
+the skill, so installing YAP installs the loop too — no separate download.
 
 ### Find the script
 
-It lives at `<skills-dir>/YAP/scripts/ralph_loop.sh`, where `<skills-dir>`
+It lives at `<skills-dir>/YAP/scripts/ralph_loop.py`, where `<skills-dir>`
 depends on the agent and install scope you chose:
 
 | Agent / scope | Path |
 | ------------- | ---- |
-| Claude Code, project | `.claude/skills/YAP/scripts/ralph_loop.sh` |
-| Claude Code, global (`-g`) | `~/.claude/skills/YAP/scripts/ralph_loop.sh` |
-| Cursor, global | `~/.cursor/skills/YAP/scripts/ralph_loop.sh` |
+| Claude Code, project | `.claude/skills/YAP/scripts/ralph_loop.py` |
+| Claude Code, global (`-g`) | `~/.claude/skills/YAP/scripts/ralph_loop.py` |
+| Cursor, global | `~/.cursor/skills/YAP/scripts/ralph_loop.py` |
 | other agents | see the [supported-agents table](https://github.com/vercel-labs/skills#supported-agents) |
 
 If unsure, `npx skills list` shows what's installed, or run
-`find ~ -path '*/YAP/scripts/ralph_loop.sh' 2>/dev/null`.
+`find ~ -path '*/YAP/scripts/ralph_loop.py' 2>/dev/null`.
 
 ### Run it
 
 Run from inside the git repo whose plan you want to execute (the repo root is
 taken from your current directory's git root). Substitute your own script path
-for `RALPH` below; running it via `bash` avoids any executable-bit issues from
-the install:
+for `RALPH`:
 
 ```bash
-RALPH=~/.claude/skills/YAP/scripts/ralph_loop.sh
+RALPH=~/.claude/skills/YAP/scripts/ralph_loop.py
 
 # supervised (default): interactive session per step, you approve risky actions live
-bash "$RALPH" Docs/Plans/<name>
+python3 "$RALPH" Docs/Plans/<name>
 
 # resume from step n after fixing a failure
-bash "$RALPH" Docs/Plans/<name> --from 3
+python3 "$RALPH" Docs/Plans/<name> --from 3
 
 # override model / reasoning effort (defaults: sonnet / high)
-bash "$RALPH" Docs/Plans/<name> --model sonnet --effort high
+python3 "$RALPH" Docs/Plans/<name> --model sonnet --effort high
 
 # fully unattended: headless, auto-commit each step, aborts on any escalated action
-bash "$RALPH" Docs/Plans/<name> --headless
+python3 "$RALPH" Docs/Plans/<name> --headless
 ```
 
-### Run it on Windows (PowerShell)
-
-Same behaviour, PowerShell-native flags (`-From`, `-Model`, `-Effort`,
-`-Headless` instead of `--from` etc.). Run from PowerShell 7+ (`pwsh`) inside
-the git repo whose plan you want to execute:
-
-```powershell
-$RALPH = "$HOME/.claude/skills/YAP/scripts/ralph_loop.ps1"
-
-# supervised (default)
-& $RALPH Docs/Plans/<name>
-
-# resume from step n
-& $RALPH Docs/Plans/<name> -From 3
-
-# override model / reasoning effort (defaults: sonnet / high)
-& $RALPH Docs/Plans/<name> -Model sonnet -Effort high
-
-# fully unattended
-& $RALPH Docs/Plans/<name> -Headless
-```
-
-If PowerShell blocks the script, allow local scripts once with
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+On Windows, use `py` (or `python`) instead of `python3`, e.g.
+`py %USERPROFILE%\.claude\skills\YAP\scripts\ralph_loop.py Docs\Plans\<name>`.
 
 ### Vendor it into a project
 
-To keep the loop with a specific project instead of calling it from the global
-skills dir, run the bundled installer from your project root — it copies both
-scripts into a folder you name (default `./scripts`):
+The loop is a single self-contained file, so keeping it with a specific project
+is just a copy — no installer needed:
 
 ```bash
-# copies ralph_loop.sh + ralph_format.jq into ./scripts
-bash ~/.claude/skills/YAP/scripts/install_ralph.sh
-
-# or choose the target folder
-bash ~/.claude/skills/YAP/scripts/install_ralph.sh Scripts
+mkdir -p scripts
+cp ~/.claude/skills/YAP/scripts/ralph_loop.py scripts/
 ```
 
-After that the loop is self-contained in the project (the jq formatter is
-resolved next to the script), so you can commit it and run
-`bash scripts/ralph_loop.sh Docs/Plans/<name>`.
-
-On Windows, use the PowerShell installer instead:
-
-```powershell
-& "$HOME/.claude/skills/YAP/scripts/install_ralph.ps1"
-```
-
-It copies `ralph_loop.ps1` + `ralph_format.jq` into `./scripts` (or a target you
-pass), then run `& ./scripts/ralph_loop.ps1 Docs/Plans/<name>`.
+Then commit it and run `python3 scripts/ralph_loop.py Docs/Plans/<name>`.
 
 ### `just` recipe
 
@@ -154,7 +110,7 @@ it at the vendored `./scripts` copy):
 ```just
 # Run a YAP plan folder step-by-step via the ralph loop
 ralph plan *args:
-    bash ~/.claude/skills/YAP/scripts/ralph_loop.sh {{plan}} {{args}}
+    python3 ~/.claude/skills/YAP/scripts/ralph_loop.py {{plan}} {{args}}
 ```
 
 Then `just ralph Docs/Plans/<name>`.
