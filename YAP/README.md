@@ -31,13 +31,20 @@ at a time.
 
 ## The ralph loop
 
-`scripts/ralph_loop.sh` runs a YAP plan folder step-by-step. Each `step_<n>_*.md`
-is executed by a fresh `claude` session, verified against its own Verify
-section, and committed before the next step runs. It stops on the first failure
-so you can fix and resume. Requires the `claude` CLI and `jq`.
+`ralph_loop.sh` runs a YAP plan folder step-by-step. Each `step_<n>_*.md` is
+executed by a fresh `claude` session, verified against its own Verify section,
+and committed before the next step runs. It stops on the first failure so you
+can fix and resume.
 
-The scripts ship inside the skill, so installing YAP installs the loop too — no
-separate download.
+Two equivalent versions ship in `scripts/`:
+
+- **`ralph_loop.sh`** — bash, for macOS / Linux / WSL / Git Bash. Requires the
+  `claude` CLI and `jq`.
+- **`ralph_loop.ps1`** — PowerShell, for Windows. Requires **PowerShell 7+**
+  (`pwsh`), the `claude` CLI, and `jq`.
+
+Both share `ralph_format.jq`. The scripts ship inside the skill, so installing
+YAP installs the loop too — no separate download.
 
 ### Find the script
 
@@ -77,6 +84,31 @@ bash "$RALPH" Docs/Plans/<name> --model sonnet --effort high
 bash "$RALPH" Docs/Plans/<name> --headless
 ```
 
+### Run it on Windows (PowerShell)
+
+Same behaviour, PowerShell-native flags (`-From`, `-Model`, `-Effort`,
+`-Headless` instead of `--from` etc.). Run from PowerShell 7+ (`pwsh`) inside
+the git repo whose plan you want to execute:
+
+```powershell
+$RALPH = "$HOME/.claude/skills/YAP/scripts/ralph_loop.ps1"
+
+# supervised (default)
+& $RALPH Docs/Plans/<name>
+
+# resume from step n
+& $RALPH Docs/Plans/<name> -From 3
+
+# override model / reasoning effort (defaults: sonnet / high)
+& $RALPH Docs/Plans/<name> -Model sonnet -Effort high
+
+# fully unattended
+& $RALPH Docs/Plans/<name> -Headless
+```
+
+If PowerShell blocks the script, allow local scripts once with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
 ### Vendor it into a project
 
 To keep the loop with a specific project instead of calling it from the global
@@ -94,6 +126,15 @@ bash ~/.claude/skills/YAP/scripts/install_ralph.sh Scripts
 After that the loop is self-contained in the project (the jq formatter is
 resolved next to the script), so you can commit it and run
 `bash scripts/ralph_loop.sh Docs/Plans/<name>`.
+
+On Windows, use the PowerShell installer instead:
+
+```powershell
+& "$HOME/.claude/skills/YAP/scripts/install_ralph.ps1"
+```
+
+It copies `ralph_loop.ps1` + `ralph_format.jq` into `./scripts` (or a target you
+pass), then run `& ./scripts/ralph_loop.ps1 Docs/Plans/<name>`.
 
 ### `just` recipe
 
