@@ -34,34 +34,77 @@ at a time.
 `scripts/ralph_loop.sh` runs a YAP plan folder step-by-step. Each `step_<n>_*.md`
 is executed by a fresh `claude` session, verified against its own Verify
 section, and committed before the next step runs. It stops on the first failure
-so you can fix and resume.
+so you can fix and resume. Requires the `claude` CLI and `jq`.
 
-Run it from inside the git repo whose plan you want to execute (the repo root is
-taken from your current directory's git root):
+The scripts ship inside the skill, so installing YAP installs the loop too — no
+separate download.
+
+### Find the script
+
+It lives at `<skills-dir>/YAP/scripts/ralph_loop.sh`, where `<skills-dir>`
+depends on the agent and install scope you chose:
+
+| Agent / scope | Path |
+| ------------- | ---- |
+| Claude Code, project | `.claude/skills/YAP/scripts/ralph_loop.sh` |
+| Claude Code, global (`-g`) | `~/.claude/skills/YAP/scripts/ralph_loop.sh` |
+| Cursor, global | `~/.cursor/skills/YAP/scripts/ralph_loop.sh` |
+| other agents | see the [supported-agents table](https://github.com/vercel-labs/skills#supported-agents) |
+
+If unsure, `npx skills list` shows what's installed, or run
+`find ~ -path '*/YAP/scripts/ralph_loop.sh' 2>/dev/null`.
+
+### Run it
+
+Run from inside the git repo whose plan you want to execute (the repo root is
+taken from your current directory's git root). Substitute your own script path
+for `RALPH` below; running it via `bash` avoids any executable-bit issues from
+the install:
 
 ```bash
+RALPH=~/.claude/skills/YAP/scripts/ralph_loop.sh
+
 # supervised (default): interactive session per step, you approve risky actions live
-./scripts/ralph_loop.sh Docs/Plans/<name>
+bash "$RALPH" Docs/Plans/<name>
 
 # resume from step n after fixing a failure
-./scripts/ralph_loop.sh Docs/Plans/<name> --from 3
+bash "$RALPH" Docs/Plans/<name> --from 3
 
 # override model / reasoning effort (defaults: sonnet / high)
-./scripts/ralph_loop.sh Docs/Plans/<name> --model sonnet --effort high
+bash "$RALPH" Docs/Plans/<name> --model sonnet --effort high
 
 # fully unattended: headless, auto-commit each step, aborts on any escalated action
-./scripts/ralph_loop.sh Docs/Plans/<name> --headless
+bash "$RALPH" Docs/Plans/<name> --headless
 ```
 
-Requires the `claude` CLI and `jq`. Path to the script depends on your install
-scope — e.g. `~/.claude/skills/YAP/scripts/ralph_loop.sh` for a global install.
+### Vendor it into a project
 
-Optional [`just`](https://github.com/casey/just) recipe — drop into your project's justfile:
+To keep the loop with a specific project instead of calling it from the global
+skills dir, run the bundled installer from your project root — it copies both
+scripts into a folder you name (default `./scripts`):
+
+```bash
+# copies ralph_loop.sh + ralph_format.jq into ./scripts
+bash ~/.claude/skills/YAP/scripts/install_ralph.sh
+
+# or choose the target folder
+bash ~/.claude/skills/YAP/scripts/install_ralph.sh Scripts
+```
+
+After that the loop is self-contained in the project (the jq formatter is
+resolved next to the script), so you can commit it and run
+`bash scripts/ralph_loop.sh Docs/Plans/<name>`.
+
+### `just` recipe
+
+Optional [`just`](https://github.com/casey/just) recipe — drop into your
+project's justfile, adjusting the path to match your install location (or point
+it at the vendored `./scripts` copy):
 
 ```just
 # Run a YAP plan folder step-by-step via the ralph loop
 ralph plan *args:
-    ~/.claude/skills/YAP/scripts/ralph_loop.sh {{plan}} {{args}}
+    bash ~/.claude/skills/YAP/scripts/ralph_loop.sh {{plan}} {{args}}
 ```
 
 Then `just ralph Docs/Plans/<name>`.
