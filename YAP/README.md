@@ -25,9 +25,46 @@ disabled — it only runs when you ask for it.)
    `plan_<name>.md`, and one `step_<n>_<slug>.md` per step.
 6. Stops — implementing the plan is a separate, later request.
 
-The saved plan is designed to feed **Matt Pocock's "ralph loop"** workflow:
-hand the vertical-sliced steps to an agent that works through them one
-verifiable slice at a time.
+The saved plan is designed to feed the **ralph loop** (below): hand the
+vertical-sliced steps to an agent that works through them one verifiable slice
+at a time.
+
+## The ralph loop
+
+`scripts/ralph_loop.sh` runs a YAP plan folder step-by-step. Each `step_<n>_*.md`
+is executed by a fresh `claude` session, verified against its own Verify
+section, and committed before the next step runs. It stops on the first failure
+so you can fix and resume.
+
+Run it from inside the git repo whose plan you want to execute (the repo root is
+taken from your current directory's git root):
+
+```bash
+# supervised (default): interactive session per step, you approve risky actions live
+./scripts/ralph_loop.sh Docs/Plans/<name>
+
+# resume from step n after fixing a failure
+./scripts/ralph_loop.sh Docs/Plans/<name> --from 3
+
+# override model / reasoning effort (defaults: sonnet / high)
+./scripts/ralph_loop.sh Docs/Plans/<name> --model sonnet --effort high
+
+# fully unattended: headless, auto-commit each step, aborts on any escalated action
+./scripts/ralph_loop.sh Docs/Plans/<name> --headless
+```
+
+Requires the `claude` CLI and `jq`. Path to the script depends on your install
+scope — e.g. `~/.claude/skills/YAP/scripts/ralph_loop.sh` for a global install.
+
+Optional [`just`](https://github.com/casey/just) recipe — drop into your project's justfile:
+
+```just
+# Run a YAP plan folder step-by-step via the ralph loop
+ralph plan *args:
+    ~/.claude/skills/YAP/scripts/ralph_loop.sh {{plan}} {{args}}
+```
+
+Then `just ralph Docs/Plans/<name>`.
 
 ## Acknowledgements
 
