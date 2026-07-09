@@ -69,11 +69,28 @@ Interactive mode is the default because it lets Claude Code's permission prompts
 actually reach you (approve/deny) instead of aborting — use `--headless` only
 when you want it fully unattended.
 
-> **Note — fully AFK mode is still WIP.** Running the whole plan unattended
-> means Claude Code executes without a human approving each action, so I intend
-> to run it inside a sandboxed Docker container that can't touch the host's
-> files. That containerised setup isn't wired up yet, so treat `--headless` as
-> experimental until then.
+#### Running a plan fully AFK (`--headless`)
+
+`--headless` runs each step unattended inside a [Docker
+sandbox](https://docs.docker.com/ai/sandboxes/) (`docker sandbox run claude`,
+requires Docker Desktop 4.50+). The sandbox mounts only the repo, so a runaway
+agent can't touch your home directory, SSH keys, or system files — the safety
+net that makes AFK runs sane. Inside it, Claude runs with
+`--permission-mode acceptEdits` so edits don't stall the loop, and the script
+parses a JSON success/failure signal per step. Inspired by the [Ralph
+loop](https://ghuntley.com/ralph/) and Matt Pocock's
+[Getting Started With Ralph](https://www.aihero.dev/getting-started-with-ralph):
+if a step reports the whole plan is already done, it emits
+`<promise>COMPLETE</promise>` and the loop stops early.
+
+```bash
+python YAP/scripts/ralph_loop.py Docs/Plans/<name>/ --headless
+```
+
+> **Caveat.** A sandbox mounts only the repo, so your **global** `AGENTS.md` and
+> user-level skills won't load (project skills committed in the repo still do).
+> You'll authenticate Claude in the sandbox on first run; credentials persist in
+> a Docker volume.
 
 ## Install with `npx skills`
 

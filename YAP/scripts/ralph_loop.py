@@ -24,10 +24,15 @@ prompt instead of aborting. No structured pass/fail signal in that mode
 (interactive sessions don't emit one) -- you exit the session yourself
 (/exit) and the script then asks you to confirm the step succeeded.
 
---headless switches to the fully-unattended mode: headless `claude -p`
-with a forced JSON status/summary the script parses itself. Faster and
-hands-off, but any escalated action just aborts the session -- no chance to
-approve it.
+--headless switches to the fully-unattended mode: headless `claude -p` run
+inside a Docker sandbox (`docker sandbox run claude`, needs Docker Desktop
+4.50+) so a runaway agent can only touch the mounted repo, not your home
+dir, SSH keys, or system files. Runs with `--permission-mode acceptEdits`
+(auto-accepts edits so the loop doesn't stall) and parses a forced JSON
+status/summary itself. If a step reports the whole plan is already done it
+emits `<promise>COMPLETE</promise>` and the loop stops early, skipping any
+remaining steps. Note: a sandbox mounts only the repo, so your global
+AGENTS.md and user-level skills won't load (project skills in the repo do).
 
 Cross-platform (macOS / Linux / Windows). Requires: Python 3.8+ and the
 `claude` CLI. Stdlib only -- no jq (the stream-json formatting is reimplemented
@@ -42,6 +47,10 @@ from pathlib import Path
 
 DEFAULT_MODEL = "sonnet"
 DEFAULT_EFFORT = "high"
+
+# Sigil a headless step emits when the whole plan is already complete — stops the
+# loop early. Borrowed from the Ralph loop (ghuntley.com/ralph).
+COMPLETE_SIGIL = "<promise>COMPLETE</promise>"
 
 SCHEMA = {
     "type": "object",
@@ -100,10 +109,12 @@ def format_stream_event(event):
 
 
 def call_claude(prompt, log_path, repo_root, claude_extra_args):
-    """Headless -p call: stream-json piped through format_stream_event, tee'd to log_path."""
+    """Headless -p call inside a Docker sandbox: stream-json piped through
+    format_stream_event, tee'd to log_path. Returns (ok, plan_complete)."""
     cmd = [
+        "docker", "sandbox", "run",
         "claude", "-p", prompt,
-        "--permission-mode", "auto",
+        "--permission-mode", "acceptEdits",
         "--output-format", "stream-json",
         "--verbose",
         "--json-schema", json.dumps(SCHEMA),
@@ -112,12 +123,15 @@ def call_claude(prompt, log_path, repo_root, claude_extra_args):
     proc = subprocess.Popen(cmd, cwd=repo_root, stdout=subprocess.PIPE, text=True, bufsize=1)
     assert proc.stdout is not None  # stdout=PIPE guarantees this; narrows for the type checker
     events = []
+    saw_complete = False
     with open(log_path, "w") as log_f:
         for line in proc.stdout:
             log_f.write(line)
             line = line.strip()
             if not line:
                 continue
+            if COMPLETE_SIGIL in line:
+                saw_complete = True
             try:
                 event = json.loads(line)
             except json.JSONDecodeError:
@@ -132,13 +146,13 @@ def call_claude(prompt, log_path, repo_root, claude_extra_args):
 
     if exit_code != 0 or last_result is None:
         print(f"FAILED (session error, exit {exit_code}) — see {log_path}")
-        return False
+        return False, saw_complete
 
     structured = last_result.get("structured_output") or {}
     verdict = "success" if last_result.get("subtype") == "success" and structured.get("status") == "success" else "failure"
     summary = structured.get("summary") or last_result.get("result") or "no summary reported"
     print(f"{verdict} — {summary}")
-    return verdict == "success"
+    return verdict == "success", saw_complete
 
 
 def call_claude_supervised(prompt, repo_root, claude_extra_args):
@@ -148,13 +162,29 @@ def call_claude_supervised(prompt, repo_root, claude_extra_args):
     subprocess.run(["claude", prompt, "--permission-mode", "auto", *claude_extra_args], cwd=repo_root)
     print()
     ans = input("Mark this step successful and continue? [y/N] ")
-    return ans in ("y", "Y")
+    return ans in ("y", "Y"), False  # interactive mode has no completion sigil
 
 
 def run_one(prompt, log_path, repo_root, claude_extra_args, supervised):
+    """Returns (ok, plan_complete)."""
     if supervised:
         return call_claude_supervised(prompt, repo_root, claude_extra_args)
     return call_claude(prompt, log_path, repo_root, claude_extra_args)
+
+
+def check_docker_sandbox():
+    """Exit with a clear message if `docker sandbox` isn't available."""
+    try:
+        proc = subprocess.run(
+            ["docker", "sandbox", "--help"],
+            capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        print("--headless needs Docker: `docker` not found. Install Docker Desktop 4.50+.", file=sys.stderr)
+        sys.exit(1)
+    if proc.returncode != 0:
+        print("--headless needs `docker sandbox` (Docker Desktop 4.50+); it isn't available.", file=sys.stderr)
+        sys.exit(1)
 
 
 def find_step_files(plan_dir):
@@ -191,6 +221,8 @@ def main():
 
     claude_extra_args = ["--model", args.model, "--effort", args.effort]
     supervised = not args.headless
+    if not supervised:
+        check_docker_sandbox()
 
     plan_dir = Path(args.plan_dir)
     if not plan_dir.is_absolute():
@@ -226,9 +258,15 @@ def main():
             "Verification section to confirm the step actually works. Report status via the required schema: "
             'status="success" only if Verification passed; otherwise "failure" with the reason in summary.'
         )
+        if not supervised:
+            prompt += (
+                f" If, after this step, the entire plan is already complete and no further steps "
+                f"are needed, output {COMPLETE_SIGIL}."
+            )
 
         print(f"=== Step {num}: {base} ===")
-        if not run_one(prompt, log, repo_root, claude_extra_args, supervised):
+        ok, plan_complete = run_one(prompt, log, repo_root, claude_extra_args, supervised)
+        if not ok:
             print()
             print(f"Stopping — step {num} failed. Fix it, then resume with:")
             script_name = Path(sys.argv[0]).name
@@ -246,6 +284,11 @@ def main():
             print(f"Committed step {num}")
         print()
 
+        if plan_complete:
+            print(f"Step {num} reported the plan complete ({COMPLETE_SIGIL}) — skipping remaining steps.")
+            print()
+            break
+
     context_file = plan_dir / "context.md"
     if context_file.is_file() and "End-to-end verification" in context_file.read_text():
         rel_context = context_file.relative_to(repo_root)
@@ -256,7 +299,8 @@ def main():
         )
 
         print("=== Final: end-to-end verification ===")
-        if not run_one(prompt, log, repo_root, claude_extra_args, supervised):
+        ok, _ = run_one(prompt, log, repo_root, claude_extra_args, supervised)
+        if not ok:
             print()
             print(f"All steps succeeded, but end-to-end verification failed — see {log}")
             sys.exit(1)
