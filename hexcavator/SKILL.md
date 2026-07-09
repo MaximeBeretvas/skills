@@ -27,8 +27,9 @@ Every fact in the blueprint must be **evidence-based** — backed by a tool
 call, never guessed:
 
 - Anything about the warehouse — that a model, table, view, or column exists,
-  its data type, its lineage — comes from the **dbt MCP** (`get_model_details`,
-  `get_all_models`) or the **BigQuery MCP** (`get_table_info`, `execute_sql`).
+  its data type, its lineage — comes from the **dbt CLI** (`list`, `compile`,
+  `show`) plus repo files, or the **BigQuery MCP** (`get_table_info`,
+  `execute_sql`).
 - Anything about the app — its story, metrics, KPIs, the columns its SQL
   reads — comes from the rendered Hex export (step 1).
 
@@ -42,13 +43,22 @@ labelled as inferred, not asserted.
 One Hex export yaml under `Hex/<app>/<app>.yaml` in the target dbt repo. If
 the user didn't name one, list the `Hex/` subfolders and ask which app.
 
+## dbt project context
+
+This is a **dbt-core** project in a **local repo — there is no dbt Cloud**. Use
+only the dbt CLI–backed MCP tools (`list`, `compile`, `show`, `build`, `run`,
+`test`, `parse`) and read the repo files directly. Do **not** call the dbt
+Cloud–only tools — the Discovery API (`get_all_models`, `get_model_details`,
+`get_mart_models`, `get_lineage`), the Semantic Layer metric tools, and the
+job/run tools all require a dbt Cloud account and will fail here.
+
 ## Steps
 
 Run the exploration in **subagents** so the raw tool output (the large Hex
 export, dbt model dumps, view DDL, `INFORMATION_SCHEMA` results) stays in their
 context, not the main one. Each subagent returns a **cited findings brief** —
 every fact paired with the tool call that proved it (e.g.
-`stg_core__orders.order_id` via dbt `get_model_details`; `DTC.t_fnb_daily` built
+`stg_core__orders.order_id` via `schema.yml` / `dbt list`; `DTC.t_fnb_daily` built
 by `scheduled_query_…` via `INFORMATION_SCHEMA.JOBS`). Pass back only the brief,
 never raw dumps.
 
@@ -65,10 +75,10 @@ never raw dumps.
 
 2. **Inventory staging and trace lineage (parallel subagents).** With the Hex
    brief in hand, spawn two subagents at once:
-   - **Staging inventory** — get the staging models and their columns+types via
-     the dbt MCP (`get_all_models`, then `get_model_details` on the `stg_`
-     models); if the dbt MCP is unavailable, read `schema.yml` + `.sql` under
-     `models/staging/`.
+   - **Staging inventory** — enumerate the staging models with the dbt CLI
+     (`dbt ls`, via the dbt MCP `list`) and read their columns+types from the
+     repo's `schema.yml` and `.sql` under `models/staging/`. (dbt-core: don't
+     reach for `get_all_models`/`get_model_details` — see dbt project context.)
    - **BigQuery lineage** — only if step 1 found external sources. For each,
      reconstruct where its data comes from with the BigQuery MCP:
      1. `get_table_info` for its type and, if a view, its SQL (or
@@ -129,8 +139,8 @@ never raw dumps.
 5. **Verify against the evidence rule (subagent).** Delegate verification to a
    fresh subagent so the re-check runs in its own context: it independently
    walks every factual claim in the blueprint and confirms each against the
-   tools — `stg_` model/column references and data types via the dbt MCP (or
-   staging files); external table/view existence, origin, and lineage via the
+   tools — `stg_` model/column references and data types via the dbt CLI
+   (`list`/`compile`/`show`) and repo files; external table/view existence, origin, and lineage via the
    BigQuery MCP; app story, KPIs, and source columns against the rendered Hex
    export — and returns a list of corrections (each unbacked claim + the fix).
    Apply them: warehouse claims that can't be confirmed move to section 6 as
