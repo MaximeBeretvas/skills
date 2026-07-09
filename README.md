@@ -30,6 +30,13 @@ That prevents context rot — the degradation you get when one long session
 accumulates a bloated, noisy context — and uses the context window far more
 efficiently, since each step only carries what that step actually needs.
 
+The script (`ralph_loop.py`) takes its inspiration from Geoffrey Huntley's
+[Ralph loop](https://ghuntley.com/ralph/): run an agent in a loop where each
+iteration gets a fresh context window and does exactly one task, using files on
+disk rather than conversation history as memory. This version swaps the
+open-ended loop for an explicit, ordered set of pre-planned, individually
+verifiable steps.
+
 ```bash
 # Run a plan (from inside the target repo)
 python YAP/scripts/ralph_loop.py Docs/Plans/<name>/
