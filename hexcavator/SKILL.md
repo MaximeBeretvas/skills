@@ -44,24 +44,53 @@ the user didn't name one, list the `Hex/` subfolders and ask which app.
 
 ## Steps
 
-1. **Render the Hex export.** Run the bundled parser on the target yaml:
-   `uv run <skill-dir>/scripts/hex_yaml_compact.py <path-to-hex.yaml>`
-   (raw exports run to hundreds of KB of UI noise — never read them
-   directly). *Done when:* you have the compact markdown of every cell.
+Run the exploration in **subagents** so the raw tool output (the large Hex
+export, dbt model dumps, view DDL, `INFORMATION_SCHEMA` results) stays in their
+context, not the main one. Each subagent returns a **cited findings brief** —
+every fact paired with the tool call that proved it (e.g.
+`stg_core__orders.order_id` via dbt `get_model_details`; `DTC.t_fnb_daily` built
+by `scheduled_query_…` via `INFORMATION_SCHEMA.JOBS`). Pass back only the brief,
+never raw dumps.
 
-2. **Mine the app.** From the compact output, extract: the narrative the app
-   tells (what question it answers, for whom), the metrics/KPIs it computes
-   or displays (name + formula/definition), and every source table and
-   column its SQL cells read from. *Done when:* you can name the app's story,
-   its KPI list, and its source columns without rereading.
+1. **Mine the Hex app (subagent).** Spawn one subagent to render and read the
+   export:
+   - Run `uv run <skill-dir>/scripts/hex_yaml_compact.py <path-to-hex.yaml>`
+     (raw exports are hundreds of KB of UI noise — never read them directly).
+   - From the compact output, extract the app's story (what it answers, for
+     whom), its metrics/KPIs (name + formula), and every source table+column
+     its SQL reads.
+   - Split those sources into two lists: references to dbt models, and external
+     BigQuery tables/views not in dbt.
+   *Done when:* the brief carries the story, KPI list, and both source lists.
 
-3. **Inventory the staging layer.** Get the existing staging models and their
-   columns via the dbt MCP (`get_all_models`, then `get_model_details` on the
-   `stg_` models). If the dbt MCP is unavailable, read the staging
-   `schema.yml` files and `.sql` under `models/staging/`. *Done when:* you
-   have a name+column list for each staging model the app could draw on.
+2. **Inventory staging and trace lineage (parallel subagents).** With the Hex
+   brief in hand, spawn two subagents at once:
+   - **Staging inventory** — get the staging models and their columns+types via
+     the dbt MCP (`get_all_models`, then `get_model_details` on the `stg_`
+     models); if the dbt MCP is unavailable, read `schema.yml` + `.sql` under
+     `models/staging/`.
+   - **BigQuery lineage** — only if step 1 found external sources. For each,
+     reconstruct where its data comes from with the BigQuery MCP:
+     1. `get_table_info` for its type and, if a view, its SQL (or
+        `INFORMATION_SCHEMA.VIEWS` via `execute_sql`).
+     2. If a view, recurse into the tables its definition reads until every
+        branch ends in a table.
+     3. For each table, find its origin via `INFORMATION_SCHEMA.JOBS`
+        (region-qualified) on `destination_table`: a populating **scheduled
+        query** (job_id begins `scheduled_query_`, or attributed to the Data
+        Transfer Service) means it's built in BigQuery — capture that SQL, add
+        the scheduled query as a node, and recurse into its inputs; no
+        populating query job means the data is **ingested from outside** — mark
+        it an ingestion source and end the branch.
+     4. Classify every node (view / scheduled-query output / ingested table),
+        record each edge and the key columns the app pulls (inferred).
+     This lineage is legacy and considered bad — documented only to understand
+     current data flow, never reproduced. If the BigQuery MCP is unavailable,
+     list the raw external tables and note lineage couldn't be resolved.
+   *Done when:* both briefs are back — staging columns+types, and the external
+   lineage with every node's origin classified.
 
-4. **Design the marts.** Map the app's needs onto a star schema: fact
+3. **Design the marts.** Map the app's needs onto a star schema: fact
    table(s) at a stated grain, dimension table(s) for the entities. Follow
    the repo's naming (`fct_`, `dim_`, `int_` for intermediates). For each
    recommended column, record which staging model+column it derives from.
@@ -69,40 +98,7 @@ the user didn't name one, list the `Hex/` subfolders and ask which app.
    data-gaps list. *Done when:* every recommended column is either mapped to
    a staging source or flagged as a gap.
 
-5. **Trace the external BigQuery lineage.** Do this only if step 4 flagged
-   sources the app reads directly from BigQuery (raw tables/views, not dbt
-   models) — the legacy pipeline that lives outside dbt. Reconstruct where
-   that data comes from, using the BigQuery MCP:
-   1. List the fully-qualified external tables/views the Hex SQL selects from
-      (`project.dataset.table`).
-   2. For each, call `get_table_info` for its type and, if it's a view, its
-      SQL definition (or query `INFORMATION_SCHEMA.VIEWS` via `execute_sql`).
-   3. If it's a view, extract the tables/views its definition reads from and
-      repeat step 2 on each — recurse until every branch ends in a table.
-   4. For each table (not a view), determine where its data comes from — it is
-      either **created inside BigQuery** or **ingested from outside**. Query
-      `INFORMATION_SCHEMA.JOBS` (region-qualified) for jobs whose
-      `destination_table` is this table:
-      - A populating job that is a **scheduled query** (its `job_id` begins
-        `scheduled_query_`, or it's attributed to the BigQuery Data Transfer
-        Service) means the table is built in BigQuery on a schedule. Capture
-        that query's SQL, add the scheduled query as its own node feeding the
-        table, and recurse into the tables its SQL reads (back to step 2).
-      - No populating query job means the data is **ingested from outside**
-        (load job, streaming, or a transfer) — mark it as an external
-        ingestion source; that's where this branch of the lineage ends.
-      Classify every node as one of: view, scheduled-query output, or
-      externally-ingested table.
-   5. Record each `upstream → downstream` edge, plus the key columns the Hex
-      app pulls from each node (inferred from the Hex SQL).
-   This lineage is legacy and considered bad — documented only to understand
-   the app's current data flow, never a target to reproduce. If the BigQuery
-   MCP is unavailable, list the raw external tables and note the lineage
-   couldn't be resolved. *Done when:* every external branch ends in either a
-   scheduled query's inputs or an externally-ingested table, every node's
-   origin is classified, and no unresolved view is left in the graph.
-
-6. **Write the blueprint** to `Docs/Blueprints/<app>/blueprint.md` with these
+4. **Write the blueprint** to `Docs/Blueprints/<app>/blueprint.md` with these
    sections, in order:
    1. **Story** — what the app tells and for whom, in a short paragraph.
    2. **Metrics & KPIs** — each metric with its definition/formula.
@@ -116,7 +112,7 @@ the user didn't name one, list the `Hex/` subfolders and ask which app.
       provides, plus grain or definition assumptions the engineer must
       confirm.
    7. **External BigQuery lineage (legacy — to be replaced)** — a Mermaid
-      `flowchart LR` of the dependencies from step 5, from origin up to what
+      `flowchart LR` of the dependencies from the lineage brief (step 2), from origin up to what
       the Hex SQL reads, each node annotated with the key columns the app
       pulls. Show scheduled queries as their own nodes feeding the tables they
       build, and mark externally-ingested tables as ingestion sources, so the
@@ -130,15 +126,17 @@ the user didn't name one, list the `Hex/` subfolders and ask which app.
       if the app reads only dbt models.
    *Done when:* the file exists with every applicable section populated.
 
-7. **Verify against the evidence rule.** Walk every factual claim in the
-   blueprint and confirm each traces to a tool call: `stg_` model/column
-   references and data types against the dbt MCP (or staging files); external
-   table/view existence and lineage against the BigQuery MCP; app story, KPIs,
-   and source columns against the rendered Hex export. Any warehouse claim
-   that can't be confirmed moves to section 6 as an assumption; inferred
-   lineage columns in section 7 must be marked inferred. *Done when:* every
-   claim in the document is either backed by a named source or demoted to an
-   open question — none left asserted without evidence.
+5. **Verify against the evidence rule (subagent).** Delegate verification to a
+   fresh subagent so the re-check runs in its own context: it independently
+   walks every factual claim in the blueprint and confirms each against the
+   tools — `stg_` model/column references and data types via the dbt MCP (or
+   staging files); external table/view existence, origin, and lineage via the
+   BigQuery MCP; app story, KPIs, and source columns against the rendered Hex
+   export — and returns a list of corrections (each unbacked claim + the fix).
+   Apply them: warehouse claims that can't be confirmed move to section 6 as
+   assumptions; inferred lineage columns in section 7 stay marked inferred.
+   *Done when:* the subagent reports no remaining unbacked claim and its
+   corrections are applied.
 
 ## Mermaid ER reference
 
