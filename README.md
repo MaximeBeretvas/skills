@@ -69,6 +69,12 @@ Interactive mode is the default because it lets Claude Code's permission prompts
 actually reach you (approve/deny) instead of aborting — use `--headless` only
 when you want it fully unattended.
 
+> **Note — fully AFK mode is still WIP.** Running the whole plan unattended
+> means Claude Code executes without a human approving each action, so I intend
+> to run it inside a sandboxed Docker container that can't touch the host's
+> files. That containerised setup isn't wired up yet, so treat `--headless` as
+> experimental until then.
+
 ## Install with `npx skills`
 
 ```bash
