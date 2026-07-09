@@ -3,8 +3,9 @@ name: hexcavator
 description: >
   Excavate a Hex report app into a data-engineer blueprint: the story it
   tells, its metrics/KPIs, a recommended fact/dim mart architecture, a
-  Mermaid ER diagram, and table schemas mapped to existing dbt staging
-  models. Invoke by typing /hexcavator.
+  Mermaid ER diagram, table schemas mapped to existing dbt staging models,
+  and the legacy BigQuery lineage behind anything not yet in dbt. Invoke by
+  typing /hexcavator.
 disable-model-invocation: true
 ---
 
@@ -52,8 +53,27 @@ the user didn't name one, list the `Hex/` subfolders and ask which app.
    data-gaps list. *Done when:* every recommended column is either mapped to
    a staging source or flagged as a gap.
 
-5. **Write the blueprint** to `Docs/Blueprints/<app>/blueprint.md` with these
-   six sections, in order:
+5. **Trace the external BigQuery lineage.** Do this only if step 4 flagged
+   sources the app reads directly from BigQuery (raw tables/views, not dbt
+   models) — the legacy pipeline that lives outside dbt. Reconstruct where
+   that data comes from, using the BigQuery MCP:
+   1. List the fully-qualified external tables/views the Hex SQL selects from
+      (`project.dataset.table`).
+   2. For each, call `get_table_info` for its type and, if it's a view, its
+      SQL definition (or query `INFORMATION_SCHEMA.VIEWS` via `execute_sql`).
+   3. If it's a view, extract the tables/views its definition reads from and
+      repeat step 2 on each — recurse until you reach base tables (no upstream)
+      or a node already seen.
+   4. Record each `upstream → downstream` edge, plus the key columns the Hex
+      app pulls from each node (inferred from the Hex SQL).
+   This lineage is legacy and considered bad — documented only to understand
+   the app's current data flow, never a target to reproduce. If the BigQuery
+   MCP is unavailable, list the raw external tables and note the lineage
+   couldn't be resolved. *Done when:* every external source resolves down to
+   base tables, with no unresolved view left in the graph.
+
+6. **Write the blueprint** to `Docs/Blueprints/<app>/blueprint.md` with these
+   sections, in order:
    1. **Story** — what the app tells and for whom, in a short paragraph.
    2. **Metrics & KPIs** — each metric with its definition/formula.
    3. **Recommended mart architecture** — the fact and dimension tables,
@@ -65,9 +85,15 @@ the user didn't name one, list the `Hex/` subfolders and ask which app.
    6. **Data gaps & open questions** — needed fields/grain no staging model
       provides, plus grain or definition assumptions the engineer must
       confirm.
-   *Done when:* the file exists with all six sections populated.
+   7. **External BigQuery lineage (legacy — to be replaced)** — a Mermaid
+      `flowchart LR` of the raw BigQuery table/view dependencies from step 5,
+      base tables up to what the Hex SQL reads, each node annotated with the
+      key columns the app pulls. State plainly that this is the legacy
+      pipeline the marts in sections 3–5 replace, not a design to reproduce.
+      Omit this section entirely if the app reads only dbt models.
+   *Done when:* the file exists with every applicable section populated.
 
-6. **Verify the mappings.** Re-check every `stg_` model and column cited in
+7. **Verify the mappings.** Re-check every `stg_` model and column cited in
    section 5 against the staging inventory from step 3. Any that don't exist
    move to section 6 (data gaps); do not leave them presented as real
    mappings. *Done when:* every source reference in section 5 is confirmed to
@@ -89,3 +115,16 @@ erDiagram
 
 Relationship syntax: `||--o{` one-to-many, `}o--o{` many-to-many,
 `||--||` one-to-one.
+
+## Mermaid lineage reference (section 7)
+
+```
+flowchart LR
+    raw_orders["DTC.raw_orders<br/>base table"]
+    v_fnb["DTC.v_fnb_enriched<br/>view · cols: order_id, revenue, supplier"]
+    hex["Hex SQL: DTC_FnB<br/>cols: Revenue_VATexcl, FnB_Supplier"]
+    raw_orders --> v_fnb --> hex
+```
+
+Direction flows upstream → downstream (base tables on the left, what the Hex
+app reads on the right). Put the node's key columns in the label.
