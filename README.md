@@ -50,6 +50,25 @@ Requires the `claude` CLI and Python 3.8+. By default each step runs as a real
 interactive `claude` session (you confirm success); `--headless` switches to
 unattended `claude -p` with a parsed pass/fail signal.
 
+#### Running a plan interactively (default)
+
+By default the script drives Claude Code in **interactive mode**, one step at a
+time:
+
+1. The script launches a `claude` session pointed at the current
+   `step-<n>-*.md`. Claude carries out the step, runs the step's own
+   Verification section, and prints a **success or failure** message.
+2. When the step is done, you close the Claude Code session (`Ctrl+C`, or
+   `/exit`).
+3. The script then asks `Mark this step successful and continue? [y/N]`. Answer
+   `y` and it commits the step's changes and automatically launches the next
+   step; anything else stops the run so you can fix and resume with
+   `--from <n>`.
+
+Interactive mode is the default because it lets Claude Code's permission prompts
+actually reach you (approve/deny) instead of aborting — use `--headless` only
+when you want it fully unattended.
+
 ## Install with `npx skills`
 
 ```bash
