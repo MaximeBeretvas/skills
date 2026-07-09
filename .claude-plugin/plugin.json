@@ -6,5 +6,5 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/MaximeBeretvas/skills",
-  "skills": ["./YAP", "./hexcavator"]
+  "skills": ["./YAP", "./hexcavator", "./ralph-loop-install"]
 }

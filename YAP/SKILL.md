@@ -55,9 +55,12 @@ and say "done" or "not done," in an order the agent can't jump ahead of.
 5. **Present for approval via `ExitPlanMode`.** Show the full draft —
    goal, files, and every step with its verification. If the user requests
    changes, revise and present again through `ExitPlanMode`. Repeat until
-   the response is an unambiguous approval. *Done when:* the user has
-   explicitly approved the current draft, with no outstanding change
-   requests. Never write files before this.
+   the response is an unambiguous approval of the plan's *content*.
+   `ExitPlanMode`'s own "continue" signal is not that approval — it only
+   means the user is done reviewing the text, not that they've agreed to
+   save it. *Done when:* the user has explicitly approved the current
+   draft's content, with no outstanding change requests. Never write files
+   before step 8.
 
 6. **Derive the plan name.** Auto-generate a kebab-case slug from the goal
    (e.g. `add-settlement-exposures`) and show it as part of the approved
@@ -72,7 +75,17 @@ and say "done" or "not done," in an order the agent can't jump ahead of.
    silently overwrite or auto-suffix. *Done when:* you have a confirmed,
    non-conflicting target folder.
 
-8. **Write the files**, following [templates.md](references/templates.md)
+8. **Confirm the save, explicitly.** Ask one dedicated yes/no question,
+   separate from any other feedback, naming the exact files about to be
+   written, e.g.: "Save this plan to `Docs/Plans/<name>/` as `context.md`
+   + `plan_<name>.md` + N step files? (yes/no)". Only a literal "yes"
+   satisfies this — anything else (a "no," a change request, silence on the
+   actual question) is not approval. If the answer isn't a literal "yes,"
+   loop back to step 3 to resolve what's wrong, redraft, and re-present via
+   `ExitPlanMode` before asking this confirmation again. *Done when:* the
+   user has replied "yes" to this exact question.
+
+9. **Write the files**, following [templates.md](references/templates.md)
    for exact structure:
    - `context.md` — goal summary + file list with reasons.
    - `plan_<name>.md` — approach + numbered links to each step file. Step
@@ -83,7 +96,7 @@ and say "done" or "not done," in an order the agent can't jump ahead of.
    *Done when:* every step from the approved draft has a corresponding
    file, and `plan_<name>.md`'s step list matches the step files exactly.
 
-9. **Stop.** Report the saved file paths to the user. Do not begin
+10. **Stop.** Report the saved file paths to the user. Do not begin
    implementing step 1 — implementation is a separate, later request.
    *Done when:* the file paths have been reported and no code has been
    changed.
