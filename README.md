@@ -24,6 +24,12 @@ and runs the plan step by step: it launches a fresh `claude` session for each
 `step-<n>-*.md`, has it complete and verify that step, then moves to the next —
 stopping on the first failure so you can fix and resume.
 
+**Why it works this way.** A big plan is broken into smaller, testable,
+validatable steps so that each one runs in a *fresh* `claude` context window.
+That prevents context rot — the degradation you get when one long session
+accumulates a bloated, noisy context — and uses the context window far more
+efficiently, since each step only carries what that step actually needs.
+
 ```bash
 # Run a plan (from inside the target repo)
 python YAP/scripts/ralph_loop.py Docs/Plans/<name>/
