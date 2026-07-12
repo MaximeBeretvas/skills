@@ -1,6 +1,6 @@
 # skills
 
-![header](CSKKr.jpg)
+![header](ninja.jpg)
 
 Personal agent skills by [Maxime Beretvas](https://github.com/MaximeBeretvas).
 
