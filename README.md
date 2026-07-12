@@ -119,4 +119,4 @@ npx skills add MaximeBeretvas/skills --list
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see  [LICENSE](LICENSE).
