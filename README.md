@@ -1,5 +1,7 @@
 # skills
 
+![header](CSKKr.jpg)
+
 Personal agent skills by [Maxime Beretvas](https://github.com/MaximeBeretvas).
 
 Installable two ways: with the [`skills`](https://github.com/vercel-labs/skills)
