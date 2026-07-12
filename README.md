@@ -10,9 +10,10 @@ CLI (works across Claude Code, Cursor, Codex, and 60+ other agents), or as a
 
 | Skill | What it does |
 | ----- | ------------ |
-| **YAP** | Draft an implementation plan broken into independently verifiable vertical slices, get explicit approval, then save it to `Docs/Plans/<name>/`. Then run the bundled loop script to execute it. Invoke by typing `/YAP`. |
+| **YAP** | Draft an implementation plan broken into independently verifiable vertical slices, get explicit approval, then save it to `Docs/Plans/<name>/`. Then run the ralph-loop-install skill's loop script to execute it. Invoke by typing `/YAP`. |
 | **hexcavator** | Excavate a Hex report app into a data-engineer blueprint — the story it tells, its metrics/KPIs, a recommended fact/dim mart architecture, a Mermaid ER diagram, and table schemas mapped to existing dbt staging models — saved to `Docs/Blueprints/<app>/`. Invoke by typing `/hexcavator`. |
-| **ralph-loop-install** | Vendors YAP's `ralph_loop.py` into the current repo and wires up a `just ralph` recipe. Triggers on requests like "install the ralph loop in scripts/". |
+| **ralph-loop-install** | Vendors its bundled `ralph_loop.py` (built to run YAP plans) into the current repo and wires up a `just ralph` recipe. Triggers on requests like "install the ralph loop in scripts/". |
+| **design-sniffer** | Sniff a live website's real rendered styles (via Claude in Chrome + `getComputedStyle`) and produce a validated, schema-compliant `DESIGN.md` in the [google-labs-code/design.md](https://github.com/google-labs-code/design.md) format — linted to zero errors by the official CLI. Invoke by typing `/design-sniffer`. |
 
 ### YAP: plan, then execute
 
@@ -20,7 +21,8 @@ YAP is two phases. First, `/YAP` produces a plan folder at `Docs/Plans/<name>/`
 containing a `context.md` and one `step-<n>-*.md` file per vertical slice, each
 with its own Verification section.
 
-Second, a bundled Python script, `YAP/scripts/ralph_loop.py`, walks that folder
+Second, a Python script bundled with the **ralph-loop-install** skill,
+`ralph-loop-install/scripts/ralph_loop.py`, walks that folder
 and runs the plan step by step: it launches a fresh `claude` session for each
 `step-<n>-*.md`, has it complete and verify that step, then moves to the next —
 stopping on the first failure so you can fix and resume.
@@ -40,11 +42,11 @@ verifiable steps.
 
 ```bash
 # Run a plan (from inside the target repo)
-python YAP/scripts/ralph_loop.py Docs/Plans/<name>/
+python ralph-loop-install/scripts/ralph_loop.py Docs/Plans/<name>/
 
 # Resume from a specific step, or run fully unattended
-python YAP/scripts/ralph_loop.py Docs/Plans/<name>/ --from 3
-python YAP/scripts/ralph_loop.py Docs/Plans/<name>/ --headless
+python ralph-loop-install/scripts/ralph_loop.py Docs/Plans/<name>/ --from 3
+python ralph-loop-install/scripts/ralph_loop.py Docs/Plans/<name>/ --headless
 ```
 
 Requires the `claude` CLI and Python 3.8+. By default each step runs as a real
@@ -85,7 +87,7 @@ if a step reports the whole plan is already done, it emits
 `<promise>COMPLETE</promise>` and the loop stops early.
 
 ```bash
-python YAP/scripts/ralph_loop.py Docs/Plans/<name>/ --headless
+python ralph-loop-install/scripts/ralph_loop.py Docs/Plans/<name>/ --headless
 ```
 
 > **Caveat.** A sandbox mounts only the repo, so your **global** `AGENTS.md` and
