@@ -16,6 +16,7 @@ CLI (works across Claude Code, Cursor, Codex, and 60+ other agents), or as a
 | **hexcavator** | Excavate a Hex report app into a data-engineer blueprint — the story it tells, its metrics/KPIs, a recommended fact/dim mart architecture, a Mermaid ER diagram, and table schemas mapped to existing dbt staging models — saved to `Docs/Blueprints/<app>/`. Invoke by typing `/hexcavator`. |
 | **ralph-loop-install** | Vendors its bundled `ralph_loop.py` (built to run YAP plans) into the current repo and wires up a `just ralph` recipe. Triggers on requests like "install the ralph loop in scripts/". |
 | **design-sniffer** | Sniff a live website's real rendered styles (via Claude in Chrome + `getComputedStyle`) and produce a validated, schema-compliant `DESIGN.md` in the [google-labs-code/design.md](https://github.com/google-labs-code/design.md) format — linted to zero errors by the official CLI. Invoke by typing `/design-sniffer`. |
+| **dag-weaver** | Turn a natural-language analytics question into permanent, PR-ready medallion dbt models. Invoke by typing `/dag-weaver`. |
 
 ### YAP: plan, then execute
 
